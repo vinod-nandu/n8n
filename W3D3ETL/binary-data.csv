@@ -1,0 +1,10 @@
+﻿Student_ID,Name,Email,Email_Status,Phone,Phone_Status,Course,Fee_Paid,City,Enrolled_Date
+STU1008,Kavitha,kavitha99@gmail.com,Valid,9988776655,Valid,Machine Learning,TRUE,Chennai,2025-01-15
+STU1011,Arun P,arunp@gmail.com,Valid,7788990011,Valid,Python,TRUE,Chennai,2025-06-17
+STU1018,Saranya,saranya22@gmail.com,Valid,,Invalid,Python,TRUE,Chennai,2025-02-11
+STU1021,Muthu S,muthus@gmail.com,Valid,8282828282,Valid,Python,TRUE,Chennai,2025-02-24
+STU1024,Divya P,divyap@yahoo.com,Valid,8585858585,Valid,Machine Learning,TRUE,Chennai,2025-06-10
+STU1038,Indira K,indirak@gmail.com,Valid,,Invalid,Machine Learning,TRUE,Chennai,2025-06-01
+STU1041,Kishore M,kishorem@gmail.com,Valid,8010101010,Valid,Machine Learning,TRUE,Chennai,2025-02-21
+STU1044,Rekha N,rekhan@yahoo.com,Valid,,Invalid,Python,TRUE,Chennai,2025-02-05
+STU1050,Ammu K,ammuk@gmail.com,Valid,9787878787,Valid,Machine Learning,TRUE,Chennai,2025-02-13

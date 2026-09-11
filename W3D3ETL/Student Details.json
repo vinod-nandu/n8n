@@ -1,0 +1,327 @@
+{
+  "name": "Student Details",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "File Upload",
+        "formDescription": "Upload the Student data",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "File upload",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -1152,
+        208
+      ],
+      "id": "0c40b25f-5500-4eef-8795-612631442aa0",
+      "name": "On form submission",
+      "webhookId": "5973d5b5-94fe-47df-b521-ebfc1f7c471c"
+    },
+    {
+      "parameters": {
+        "binaryPropertyName": "File_upload",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -928,
+        208
+      ],
+      "id": "e59d3d73-8907-4be8-be02-0f922f98ff77",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Clean this student enrollment row and return ONLY a JSON object.\nRow data: {{ JSON.stringify($json) }}\nRules:\n- Name: Title Case\n- Email: if invalid (no @ or no .com/.in) set INVALID_EMAIL\n- Phone: if less than 10 digits or empty set MISSING\n- Course: only Python or Machine Learning or Data Science\n- Fee_Paid: yes/YES = true, no/NO = false\n- City: Title Case, empty = UNKNOWN\n- Enrolled_Date: YYYY-MM-DD format\nReturn ONLY raw JSON. No explanation. No markdown.",
+        "hasOutputParser": true,
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        -704,
+        208
+      ],
+      "id": "3a430fcb-dcea-49c5-a147-c4891bb46fc4",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -816,
+        416
+      ],
+      "id": "8fd552e2-84a2-4759-81be-25700ec27ecb",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "v5HD09uoFXfQ1VrZ",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code Node\n// Mode: Run Once for All Items\n\nconst results = [];\n\nfor (const item of $input.all()) {\n\n    let data = item.json;\n\n    // ==========================================\n    // 1. GET AI TEXT\n    // ==========================================\n\n    // Your AI output is:\n    // {\n    //   \"text\": \"{\\\"Student_ID\\\":\\\"STU1001\\\", ... }\"\n    // }\n\n    if (data.text !== undefined) {\n        data = data.text;\n    }\n\n    // ==========================================\n    // 2. PARSE JSON STRING\n    // ==========================================\n\n    if (typeof data === \"string\") {\n\n        let text = data.trim();\n\n        // Remove ```json and ``` if AI adds them\n        text = text\n            .replace(/^```json\\s*/i, \"\")\n            .replace(/^```\\s*/i, \"\")\n            .replace(/\\s*```$/i, \"\")\n            .trim();\n\n        try {\n            data = JSON.parse(text);\n        } catch (error) {\n\n            // Try extracting JSON from surrounding text\n            const start = text.indexOf(\"{\");\n            const end = text.lastIndexOf(\"}\");\n\n            if (start !== -1 && end !== -1) {\n\n                try {\n                    data = JSON.parse(\n                        text.substring(start, end + 1)\n                    );\n                } catch (error2) {\n                    continue;\n                }\n\n            } else {\n                continue;\n            }\n        }\n    }\n\n    // ==========================================\n    // 3. HANDLE ARRAY OR SINGLE OBJECT\n    // ==========================================\n\n    const students = Array.isArray(data)\n        ? data\n        : [data];\n\n    // ==========================================\n    // 4. PROCESS EACH STUDENT\n    // ==========================================\n\n    for (const student of students) {\n\n        if (!student || typeof student !== \"object\") {\n            continue;\n        }\n\n        // --------------------------------------\n        // Student ID\n        // --------------------------------------\n\n        const Student_ID = String(\n            student.Student_ID ?? \"\"\n        ).trim();\n\n\n        // --------------------------------------\n        // Name\n        // --------------------------------------\n\n        const Name = String(\n            student.Name ?? \"\"\n        )\n        .trim()\n        .replace(/\\s+/g, \" \");\n\n\n        // --------------------------------------\n        // Email\n        // --------------------------------------\n\n        const Email = String(\n            student.Email ?? \"\"\n        )\n        .trim();\n\n        const emailRegex =\n            /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n\n        const Email_Status =\n            emailRegex.test(Email)\n                ? \"Valid\"\n                : \"Invalid\";\n\n\n        // --------------------------------------\n        // Phone\n        // --------------------------------------\n\n        let Phone = String(\n            student.Phone ?? \"\"\n        )\n        .trim();\n\n        // Remove spaces, +, -, brackets, etc.\n        Phone = Phone.replace(/\\D/g, \"\");\n\n        // Convert +91XXXXXXXXXX → XXXXXXXXXX\n        if (\n            Phone.length === 12 &&\n            Phone.startsWith(\"91\")\n        ) {\n            Phone = Phone.substring(2);\n        }\n\n        const phoneRegex = /^[6-9]\\d{9}$/;\n\n        const Phone_Status =\n            phoneRegex.test(Phone)\n                ? \"Valid\"\n                : \"Invalid\";\n\n\n        // --------------------------------------\n        // Course\n        // --------------------------------------\n\n        const Course = String(\n            student.Course ?? \"\"\n        )\n        .trim()\n        .replace(/\\s+/g, \" \");\n\n\n        // --------------------------------------\n        // Fee Paid\n        // --------------------------------------\n\n        let Fee_Paid = false;\n\n        if (student.Fee_Paid === true) {\n\n            Fee_Paid = true;\n\n        } else if (\n            typeof student.Fee_Paid === \"string\"\n        ) {\n\n            const value =\n                student.Fee_Paid\n                    .trim()\n                    .toLowerCase();\n\n            if (\n                value === \"true\" ||\n                value === \"yes\" ||\n                value === \"paid\" ||\n                value === \"1\"\n            ) {\n                Fee_Paid = true;\n            }\n        }\n\n\n        // --------------------------------------\n        // City\n        // --------------------------------------\n\n        const City = String(\n            student.City ?? \"\"\n        )\n        .trim()\n        .replace(/\\s+/g, \" \");\n\n\n        // --------------------------------------\n        // Enrolled Date\n        // --------------------------------------\n\n        let Enrolled_Date = String(\n            student.Enrolled_Date ?? \"\"\n        ).trim();\n\n        if (Enrolled_Date) {\n\n            const date = new Date(Enrolled_Date);\n\n            if (!isNaN(date.getTime())) {\n\n                Enrolled_Date =\n                    date.toISOString().split(\"T\")[0];\n\n            } else {\n\n                Enrolled_Date = \"\";\n            }\n        }\n\n\n        // ==========================================\n        // 5. FINAL CLEAN OBJECT\n        // ==========================================\n\n        results.push({\n            json: {\n                Student_ID: Student_ID,\n                Name: Name,\n                Email: Email,\n                Email_Status: Email_Status,\n                Phone: Phone,\n                Phone_Status: Phone_Status,\n                Course: Course,\n                Fee_Paid: Fee_Paid,\n                City: City,\n                Enrolled_Date: Enrolled_Date\n            }\n        });\n    }\n}\n\n// ==========================================\n// 6. RETURN CLEAN ITEMS\n// ==========================================\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        352
+      ],
+      "id": "2bd7fe9f-c32e-4bae-89a8-a1cfb2bfaacb",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "d5b98190-3d89-411c-a0fe-bc37484d72c6",
+              "leftValue": "={{ $json.Fee_Paid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "e46dcbcf-d6bb-4da9-9e9c-601401a98003",
+              "leftValue": "={{ $json.City }}",
+              "rightValue": "Chennai",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "946c0058-7bd1-4a8d-9e42-580ad5b50cdb",
+              "leftValue": "={{ $json.Email_Status }}",
+              "rightValue": "Invalid",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        96
+      ],
+      "id": "6aaf4962-5430-4fab-9707-81cfd0d8ea0d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        272,
+        64
+      ],
+      "id": "4026afb3-1f05-4cd5-a21a-743cc6629fdc",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -384,
+        352
+      ],
+      "id": "077f09ec-51e4-4bf5-9dcb-556f3466735b",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        272,
+        288
+      ],
+      "id": "939339ee-414d-4e5f-b6ef-3e449f146e19",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "content": "***** FEE PAID*****\nStudent ready for Course",
+        "height": 96,
+        "width": 224
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        192,
+        -48
+      ],
+      "id": "eb450d8f-891a-4a23-95b1-a8d79dc47888",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "****Pending Fee*****\n",
+        "height": 96
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        208,
+        448
+      ],
+      "id": "89245b5c-0ad7-4cae-b465-23e8c4f698c5",
+      "name": "Sticky Note1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "e15c3b61-8515-4d0b-9158-bf3f404e4cdc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6f63c95fdd4f0b4dd2b85894a5775fe22febd4bc67d63bebe0a2d0ef95fd39a7"
+  },
+  "nodeGroups": [],
+  "id": "5imoqHKVNCTgF1a9",
+  "tags": []
+}
