@@ -1,0 +1,217 @@
+{
+  "name": "Assignment 9 - Google Sheets to Gmail",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "2fc6cf12-dacf-44d5-8de4-5f20e7f17e31",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1360,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1UI_EUw5K9ezwrchHo-d_DDOO8YTyf0arImYD-xmMAnw/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "3e3b28c0-1a09-4ecf-8022-3ffcb59caed8",
+      "name": "Get Rows - Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -1120,
+        48
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Nk5ZhalPF4eQEPYL",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all incoming rows into one item so a single email can be sent.\n// Also flags whether the sheet actually had data.\nconst rows = items.map(item => item.json);\n\nreturn [\n  {\n    json: {\n      rows: rows,\n      rowCount: rows.length,\n      hasData: rows.length > 0\n    }\n  }\n];"
+      },
+      "id": "c730ce50-7cbd-4f5b-bf04-35f6952ae364",
+      "name": "Aggregate Rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-has-data",
+              "leftValue": "={{ $json.hasData }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a153fdd8-c94b-4797-aa16-f6ac406b0816",
+      "name": "IF Sheet Has Data",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build a clean, human-readable email subject and body from the sheet rows.\nconst data = items[0].json;\nconst rows = data.rows;\n\nconst today = new Date().toLocaleDateString('en-US', {\n  year: 'numeric', month: 'long', day: 'numeric'\n});\n\nconst subject = `Sheet Report - ${rows.length} record(s) - ${today}`;\n\n// Build a readable list from each row's key/value pairs.\nconst rowBlocks = rows.map((row, index) => {\n  const lines = Object.entries(row)\n    .map(([key, value]) => `  ${key}: ${value}`)\n    .join('\\n');\n  return `Record ${index + 1}\\n${lines}`;\n}).join('\\n\\n');\n\nconst body =\n`Hello,\n\nHere is the latest data pulled from the Google Sheet (${rows.length} record(s) as of ${today}):\n\n${rowBlocks}\n\nThis email was generated automatically by an n8n workflow.\n\nBest,\nAutomation Bot`;\n\nreturn [\n  {\n    json: {\n      subject: subject,\n      body: body\n    }\n  }\n];"
+      },
+      "id": "07e97d71-5739-4109-967b-49db8c631d69",
+      "name": "Structure Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "itsvinod@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "d9f32022-8878-41e3-9ad9-6736ce6d30d3",
+      "name": "Send Email - Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -160,
+        -80
+      ],
+      "webhookId": "f8de3f5e-684e-4406-8c88-0f07792e4fa5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "HZiHBiUecUG6jHIV",
+          "name": "Gmail account 2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "e91cb610-6d85-492a-b0f8-bfc86c2810f2",
+      "name": "No Data - Do Nothing",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        160
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Rows - Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Rows - Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Rows": {
+      "main": [
+        [
+          {
+            "node": "IF Sheet Has Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Sheet Has Data": {
+      "main": [
+        [
+          {
+            "node": "Structure Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Data - Do Nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Email": {
+      "main": [
+        [
+          {
+            "node": "Send Email - Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9d4379fa-dc0c-4da1-aa8d-7bfef8841d98",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6f63c95fdd4f0b4dd2b85894a5775fe22febd4bc67d63bebe0a2d0ef95fd39a7"
+  },
+  "nodeGroups": [],
+  "id": "JLNsStMOOrm3f1bk",
+  "tags": []
+}
